@@ -1,0 +1,5 @@
+# MCU 8051 IDE: Virtual HW component configuration file
+# Project: SemaforoInteligente(0)
+# Component: LED Matrix
+
+LedMatrix {{C5 - C6 - C7 - R0 0 R1 - R2 - R3 - R4 - R5 - R6 - R7 - C0 2 C1 2 C2 2 C3 2 C4 2} {C5 - C6 - C7 - R0 0 R1 - R2 - R3 - R4 - R5 - R6 - R7 - C0 3 C1 4 C2 5 C3 6 C4 7} {} {} red 50 {0 0} 1 1}

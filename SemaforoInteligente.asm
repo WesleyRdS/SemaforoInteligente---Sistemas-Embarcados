@@ -1,0 +1,255 @@
+	ORG	0000h
+	AJMP	PRINCIPAL	;Desvia das rotinas de interrupção
+;------------------Interrupção INT0---------------------
+	ORG	0003H
+	AJMP	RESETINT0
+ENDINT0:
+	RETI
+
+;------------------Interrupção TIMER0--------------------------
+	ORG	0000BH	;Endereço da interrupção do timer 0
+	AJMP	TIMER
+ENDINT:
+	RETI		;Retorna a interrupção
+
+;-----------------Interrupção INT1-----------------------------
+	ORG	0013H
+	AJMP	RESETINT1
+ENDINT1:
+	RETI
+
+
+PRINCIPAL:
+;----------Configurando INTERRUPÇÕES------------
+	MOV	A, #05H
+	MOV	IP, A	;Definindo INT0 e INT1 com alta prioridade
+	MOV	A, #87H
+	MOV	IE, A	;Habilitando INT0, INT1 e TIMER1
+	MOV	A, #05H
+;---------------------------------------
+	MOV 	DPTR, #BANK
+	MOV 	R0, #00H
+	MOV	R1, #3FH
+	MOV 	R2, #06H
+	MOV 	A, #00H
+	MOV 	R4, #00H
+	MOV	R6, #00H
+	MOV	R7, #01H
+	MOV	TMOD, #01H	;Configura timer 1 para contar com o clock interno e no modo 1(16 bits)
+	MOV	TCON, #10H	;Habilita contagem do timer 0
+	CLR	P0.0
+	CLR	P0.1
+	CLR	P0.2
+	CLR	P0.3
+	CLR	P0.4
+	CLR	P0.5
+	CLR	P0.6
+	CLR	P0.7
+	;T0 = 64536-FC18 hexa, contagem 65536 - 64356 = 1000us = 1ms
+	MOV	TH0, #0FCH
+	MOV	TL0, #18H
+	SETB	P0.4
+BLINK:
+	MOV	A, R1
+	XRL	A, #3FH
+	JZ	CHANGESIGNALSTEP1
+	MOV	P1, R2
+	SETB	P0.1
+	CLR	P0.1
+	MOV	P1, R1
+	SETB	P0.0
+	CLR	P0.0
+	
+	JMP	BLINK
+
+CHANGESIGNALSTEP1:
+;-----Wild se remover essa parte daqui o 10 do contador some
+	MOV	P1, R2
+	SETB	P0.1
+	CLR	P0.1
+	MOV	P1, R1
+	SETB	P0.0
+	CLR	P0.0
+;-------------------------------------------------------------
+	MOV	A, R2
+	XRL	A, #3FH
+	JZ	CHANGESIGNALSTEP2
+	JMP	BLINK
+	
+CHANGESIGNALSTEP2:
+;-----Wild se remover essa parte daqui o 10 do contador some
+	MOV	P1, R2
+	SETB	P0.1
+	CLR	P0.1
+	MOV	P1, R1
+	SETB	P0.0
+	CLR	P0.0
+;-------------------------------------------------------------
+	MOV	A, R1
+	XRL	A, #3FH
+	JNZ	BLINK
+	MOV	A, R7
+	XRL	A, #0H
+	JZ	GREENSIGNAL
+	MOV	A, R7
+	XRL	A, #1H
+	JZ	YELLOWSIGNAL
+	MOV	A, R7
+	XRL	A, #2H
+	MOV	R7, #0H
+	JZ	REDSIGNAL
+
+GREENSIGNAL:
+	MOV	A, #87H
+	MOV	IE, A
+	MOV 	DPTR, #GREEN
+	MOV	A, R7
+	INC	A
+	MOV 	R0, #00H
+	MOV	R7, A
+	MOV	R1, #3FH
+	MOV	R2, #06H
+	SETB	P0.4
+	CLR	P0.6
+	AJMP 	BLINK
+YELLOWSIGNAL:
+	MOV 	DPTR, #YELLOW
+	MOV	A, R7
+	INC	A
+	MOV	R7, A
+	MOV 	R0, #00H
+	MOV	R2, #3FH
+	MOV 	R1, #4FH
+	SETB	P0.5
+	CLR	P0.4
+	AJMP BLINK
+REDSIGNAL:
+	MOV	A, #83H
+	MOV	IE, A
+	MOV 	DPTR, #RED
+	MOV 	R0, #00H
+	MOV	R7, #0H
+	MOV	R2, #3FH
+	MOV	R1, #07H
+	SETB	P0.6
+	CLR	P0.5
+	AJMP BLINK
+RESET:
+	;Reiniciando timer
+	MOV	R4, #00H
+	MOV	TH0, #0FCH
+	MOV	TL0, #18H
+	AJMP	ENDINT
+TIMER:
+	;T0 = 64536-FC18 hexa, contagem 65536 - 64356 = 1000us = 1ms
+	MOV	TH0, #0FCH
+	MOV	TL0, #18H
+	MOV 	A, R4
+	INC 	A
+	MOV 	R4, A
+	CLR	TF0
+	MOV 	A, R4
+	XRL 	A, #01H
+	MOV 	R4, 00H
+	MOV 	A, R1
+	XRL 	A, #3FH
+    	JZ 	BANKRESET
+	MOV 	A, R0
+	MOVC 	A, @A+DPTR
+	INC 	R0
+	MOV	R1, A
+	JMP 	RESET
+RESETINT0:
+	MOV	A, #83H
+	MOV	IE, A
+	MOV	R6, #00H
+	MOV	B, #0FFH
+	MOV	R2, #06H
+	MOV 	DPTR, #EMERGENCY
+	MOV 	R0, #00H
+	MOV	R1, #6DH
+	SETB	P0.6
+	CLR	P0.4
+	CLR	P0.5
+	MOV	R7, #0H
+	AJMP	ENDINT0
+BANKRESET:
+	MOV	R2, #3FH
+	MOV 	DPTR, #BANK
+	MOV 	R0, #00H
+	MOV 	R1, #6FH
+	MOV 	A, #00H
+	MOV 	P1, 6FH
+	JMP 	RESET
+RESETINT1:
+	MOV	A, R6
+	INC	A
+	MOV	R6, A
+	XRL	A, #06H
+	JZ	ZEROCOUNTER
+ENDRESETINT1:
+	MOV	A, R6
+	XRL	A, #01H
+	JZ	ONE
+	XRL	A, #02H
+	JZ	TWO
+	XRL	A, #03H
+	JZ	THREE
+	XRL	A, #04H
+	JZ	FOUR
+	XRL	A, #05H
+	JZ	FIVE
+RETURNENDIT:
+	AJMP	ENDINT1
+ZEROCOUNTER:
+	MOV	R7, #0H
+	MOV	A, #87H
+	MOV	IE, A
+	MOV	R6, #00H
+	MOV	B, #0FFH
+	MOV	P2, B
+	MOV	R2, #06H
+	MOV 	DPTR, #EMERGENCY
+	MOV 	R0, #00H
+	MOV	R1, #6DH
+	SETB	P0.4
+	CLR	P0.5
+	CLR	P0.6
+	MOV	R7, #1H
+	JMP	RETURNENDIT
+
+ONE:
+	MOV	B, #01111B
+	MOV	P2, B
+	JMP RETURNENDIT
+TWO:
+	MOV	B, #00111B
+	MOV	P2, B
+	JMP RETURNENDIT
+THREE:
+	MOV	B, #00011B
+	MOV	P2, B
+	JMP RETURNENDIT
+FOUR:
+	MOV	B, #00001B
+	MOV	P2, B
+	JMP RETURNENDIT
+FIVE:
+	MOV	B, #00000B
+	MOV	P2, B
+	JMP RETURNENDIT
+BANK:
+	DB     7FH
+RED:
+	DB     07H
+	DB     7DH
+EMERGENCY:
+	DB     6DH
+	DB     66H
+YELLOW:
+	DB     4FH
+	DB     5BH
+	DB     06H
+GREEN:
+	DB     3FH
+END
